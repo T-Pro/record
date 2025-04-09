@@ -10,4 +10,47 @@
 pubspec.lock
 
 # melos
-pubspec_overrides.yaml
+pubspec_overrides.yam
+
+# dependencies
+node_modules/
+
+# optional npm cache directory
+.npm/
+
+# logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# dotenv environment files
+.env
+.env.local
+.env.*.local
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+
+# test coverage
+coverage/
+
+# build output
+dist/
+build/
+
+# TypeScript output (if using TypeScript)
+*.tsbuildinfo
+
+# lock files (optional, depends on your workflow)
+package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+l

@@ -1,10 +1,13 @@
+// File: lib/recorder/recorder.dart
 import 'dart:async';
 import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 
 import 'package:flutter/foundation.dart';
 import 'package:record_platform_interface/record_platform_interface.dart';
+import 'package:record_web/js/js_audio_recorder.dart';
 import 'package:record_web/mime_types.dart';
+import 'package:record_web/recorder/delegate/js_recorder_delegate.dart';
 import 'package:record_web/recorder/delegate/media_recorder_delegate.dart';
 import 'package:record_web/recorder/delegate/mic_recorder_delegate.dart';
 import 'package:record_web/recorder/delegate/recorder_delegate.dart';
@@ -36,33 +39,11 @@ class Recorder {
   }
 
   Future<List<InputDevice>> listInputDevices() async {
-    final devices = <InputDevice>[];
-
-    final mediaDevices = web.window.navigator.mediaDevices;
-    try {
-      final deviceInfos = await mediaDevices.enumerateDevices().toDart;
-      for (var info in deviceInfos.toDart) {
-        if (info.kind == 'audioinput') {
-          devices.add(InputDevice(id: info.deviceId, label: info.label));
-        }
-      }
-    } catch (error) {
-      debugPrint(error.toString());
-    }
-
-    return devices;
+    return JSAudioRecorder.listInputDevices();
   }
 
   Future<bool> isEncoderSupported(AudioEncoder encoder) {
-    switch (encoder) {
-      case AudioEncoder.wav:
-      case AudioEncoder.pcm16bits:
-        return Future.value(true);
-      default:
-        final type = getSupportedMimeType(encoder);
-
-        return Future.value(type != null ? true : false);
-    }
+    return Future.value(JSAudioRecorder.isEncoderSupported(encoder));
   }
 
   Future<void> dispose() async {
@@ -121,35 +102,55 @@ class Recorder {
   }
 
   Future<void> start(RecordConfig config, {required String path}) async {
-    switch (config.encoder) {
-      case AudioEncoder.wav:
-      case AudioEncoder.pcm16bits:
-        await _delegate?.dispose();
-        _delegate = MicRecorderDelegate(onStateChanged: _updateState);
-        return _delegate!.start(config, path: path);
-      default:
-        await _delegate?.dispose();
+    // Use our custom JS recorder delegate for all formats
+    await _delegate?.dispose();
+    _delegate = JSRecorderDelegate(onStateChanged: _updateState);
+    
+    try {
+      return _delegate!.start(config, path: path);
+    } catch (e) {
+      // If our custom implementation fails, fall back to the original implementations
+      debugPrint('JS recorder failed, falling back to default: $e');
+      await _delegate?.dispose();
+      
+      // Original implementation follows
+      switch (config.encoder) {
+        case AudioEncoder.wav:
+        case AudioEncoder.pcm16bits:
+          _delegate = MicRecorderDelegate(onStateChanged: _updateState);
+          return _delegate!.start(config, path: path);
+        default:
+          final supported = await isEncoderSupported(config.encoder);
+          if (!supported) {
+            throw Exception('Encoder ${config.encoder} not supported.');
+          }
 
-        final supported = await isEncoderSupported(config.encoder);
-        if (!supported) {
-          throw Exception('Encoder ${config.encoder} not supported.');
-        }
-
-        _delegate = MediaRecorderDelegate(onStateChanged: _updateState);
-        return _delegate!.start(config, path: path);
+          _delegate = MediaRecorderDelegate(onStateChanged: _updateState);
+          return _delegate!.start(config, path: path);
+      }
     }
   }
 
   Future<Stream<Uint8List>> startStream(
     RecordConfig config,
   ) async {
-    switch (config.encoder) {
-      case AudioEncoder.pcm16bits:
-        await _delegate?.dispose();
-        _delegate = MicRecorderDelegate(onStateChanged: _updateState);
-        return _delegate!.startStream(config);
-      default:
-        throw Exception('Stream not supported.');
+    // Try our JS implementation first
+    try {
+      await _delegate?.dispose();
+      _delegate = JSRecorderDelegate(onStateChanged: _updateState);
+      return _delegate!.startStream(config);
+    } catch (e) {
+      // Fall back to original implementation
+      debugPrint('JS streaming failed, falling back to default: $e');
+      await _delegate?.dispose();
+      
+      switch (config.encoder) {
+        case AudioEncoder.pcm16bits:
+          _delegate = MicRecorderDelegate(onStateChanged: _updateState);
+          return _delegate!.startStream(config);
+        default:
+          throw Exception('Stream not supported.');
+      }
     }
   }
 

@@ -1,0 +1,238 @@
+// File: lib/js/js_audio_recorder.dart
+import 'dart:async';
+import 'dart:js_interop';
+import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart';
+import 'package:record_platform_interface/record_platform_interface.dart';
+import 'package:record_web/js/js_import_library.dart';
+import 'package:web/web.dart' as web;
+
+@JS('createRecorder')
+external JSPromise<JSBoolean> _createRecorder(
+  String recorderId,
+  JSObject config,
+);
+
+@JS('registerDartCallback')
+external void _registerDartCallback(
+  String recorderId,
+  JSFunction callback,
+);
+
+@JS('startRecording')
+external JSPromise<JSBoolean> _startRecording(String recorderId);
+
+@JS('stopRecording')
+external JSPromise<JSBoolean> _stopRecording(String recorderId);
+
+@JS('pauseRecording')
+external JSPromise<JSBoolean> _pauseRecording(String recorderId);
+
+@JS('resumeRecording')
+external JSPromise<JSBoolean> _resumeRecording(String recorderId);
+
+@JS('isRecording')
+external JSBoolean _isRecording(String recorderId);
+
+@JS('isPaused')
+external JSBoolean _isPaused(String recorderId);
+
+@JS('disposeRecorder')
+external JSBoolean _disposeRecorder(String recorderId);
+
+@JS('getAmplitude')
+external JSObject _getAmplitude(String recorderId);
+
+@JS('listInputDevices')
+external JSPromise<JSArray> _listInputDevices();
+
+@JS('isEncoderSupported')
+external JSBoolean _isEncoderSupported(String encoder);
+
+class JSAudioRecorder {
+  final String recorderId;
+  final StreamController<Uint8List>? _streamController;
+  final void Function(RecordState)? onStateChanged;
+
+  static const String bridgeScriptId = 'web_recording_lib_bridge';
+  static bool _bridgeLoaded = false;
+
+  JSAudioRecorder({
+    required this.recorderId, 
+    this.onStateChanged,
+    StreamController<Uint8List>? streamController,
+  }) : _streamController = streamController {
+    _loadBridgeScript();
+  }
+
+  static void _loadBridgeScript() {
+    if (!_bridgeLoaded) {
+      ImportJsLibrary().import(
+        // Update this path to point to where you place your bridge file
+        './assets/packages/record_web/assets/js/record.bridge.js',
+        bridgeScriptId,
+      );
+      _bridgeLoaded = true;
+    }
+  }
+
+  void _registerCallback() {
+    final callback = ((JSUint8Array data) {
+      final dartData = data.toDart;
+      _streamController?.add(dartData);
+    }).toJS;
+    
+    _registerDartCallback(recorderId, callback);
+  }
+
+  Future<bool> create(RecordConfig config) async {
+    try {
+      final jsConfig = {
+        'sampleRate': config.sampleRate,
+        'numChannels': config.numChannels,
+        'bitRate': config.bitRate,
+        'chunkDuration': 0.040, // Default chunk duration in seconds
+        'autoGain': config.autoGain,
+        'echoCancel': config.echoCancel,
+        'noiseSuppress': config.noiseSuppress,
+      }.jsify()! as JSObject;
+
+      final result = await _createRecorder(recorderId, jsConfig).toDart;
+      
+      if (_streamController != null) {
+        _registerCallback();
+      }
+      
+      return result.toDart;
+    } catch (e) {
+      debugPrint('Error creating recorder: $e');
+      return false;
+    }
+  }
+
+  Future<bool> start() async {
+    try {
+      final result = await _startRecording(recorderId).toDart;
+      if (result.toDart && onStateChanged != null) {
+        onStateChanged!(RecordState.record);
+      }
+      return result.toDart;
+    } catch (e) {
+      debugPrint('Error starting recording: $e');
+      return false;
+    }
+  }
+
+  Future<bool> stop() async {
+    try {
+      final result = await _stopRecording(recorderId).toDart;
+      if (result.toDart && onStateChanged != null) {
+        onStateChanged!(RecordState.stop);
+      }
+      return result.toDart;
+    } catch (e) {
+      debugPrint('Error stopping recording: $e');
+      return false;
+    }
+  }
+
+  Future<bool> pause() async {
+    try {
+      final result = await _pauseRecording(recorderId).toDart;
+      if (result.toDart && onStateChanged != null) {
+        onStateChanged!(RecordState.pause);
+      }
+      return result.toDart;
+    } catch (e) {
+      debugPrint('Error pausing recording: $e');
+      return false;
+    }
+  }
+
+  Future<bool> resume() async {
+    try {
+      final result = await _resumeRecording(recorderId).toDart;
+      if (result.toDart && onStateChanged != null) {
+        onStateChanged!(RecordState.record);
+      }
+      return result.toDart;
+    } catch (e) {
+      debugPrint('Error resuming recording: $e');
+      return false;
+    }
+  }
+
+  bool isRecording() {
+    try {
+      return _isRecording(recorderId).toDart;
+    } catch (e) {
+      debugPrint('Error checking recording state: $e');
+      return false;
+    }
+  }
+
+  bool isPaused() {
+    try {
+      return _isPaused(recorderId).toDart;
+    } catch (e) {
+      debugPrint('Error checking paused state: $e');
+      return false;
+    }
+  }
+
+  bool dispose() {
+    try {
+      return _disposeRecorder(recorderId).toDart;
+    } catch (e) {
+      debugPrint('Error disposing recorder: $e');
+      return false;
+    }
+  }
+
+  Amplitude getAmplitude() {
+    try {
+      final jsAmplitude = _getAmplitude(recorderId);
+      final map = jsAmplitude.dartify() as Map<String, dynamic>;
+      return Amplitude(
+        current: (map['current'] as num).toDouble(),
+        max: (map['max'] as num).toDouble(),
+      );
+    } catch (e) {
+      debugPrint('Error getting amplitude: $e');
+      return Amplitude(current: kMinAmplitude, max: kMinAmplitude);
+    }
+  }
+
+  static Future<List<InputDevice>> listInputDevices() async {
+    try {
+      final jsDevices = await _listInputDevices().toDart;
+      final List<dynamic> devices = jsDevices.toDart.dartify() as List<dynamic>;
+      
+      return devices.map((device) {
+        final map = device as Map<String, dynamic>;
+        return InputDevice(
+          id: map['id'] as String,
+          label: map['label'] as String,
+        );
+      }).toList();
+    } catch (e) {
+      debugPrint('Error listing input devices: $e');
+      return [];
+    }
+  }
+
+  static bool isEncoderSupported(AudioEncoder encoder) {
+    try {
+      final encoderName = encoder.toString().split('.').last;
+      return _isEncoderSupported(encoderName).toDart;
+    } catch (e) {
+      debugPrint('Error checking encoder support: $e');
+      return false;
+    }
+  }
+}
+
+// Constants from the original Recorder class
+const kMaxAmplitude = 0.0;
+const kMinAmplitude = -160.0;
