@@ -42,6 +42,7 @@ class RecordPluginWebWrapper extends RecordPlatform {
 
   @override
   Future<bool> hasPermission(String recorderId) {
+    print('My RecordPluginWeb - hasPermission: $recorderId');
     return _getRecorder(recorderId).hasPermission();
   }
 
@@ -71,6 +72,7 @@ class RecordPluginWebWrapper extends RecordPlatform {
     RecordConfig config, {
     required String path,
   }) {
+    print('My RecordPluginWeb - start: $recorderId');
     return _getRecorder(recorderId).start(config, path: path);
   }
 
