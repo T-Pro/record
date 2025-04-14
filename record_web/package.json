@@ -14,9 +14,6 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "web-recording-lib": "github:T-Pro/web-recording-lib"
-  },
   "devDependencies": {
     "@babel/core": "^7.26.10",
     "@babel/preset-env": "^7.26.9",
@@ -25,5 +22,8 @@
     "typescript": "^5.8.3",
     "webpack": "^5.99.5",
     "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "web-recording-lib": "github:T-Pro/web-recording-lib#fix/npm-package"
   }
 }

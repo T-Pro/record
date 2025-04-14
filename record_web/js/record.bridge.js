@@ -7,7 +7,7 @@ import {
     AudioWorkletRecordingHelper, 
     MediaStreamRecordingHelper, 
     MediaTrackRecorderHelper 
-  } from '../assets/js/web-recording-lib/web-recording-lib-1.0.0.umd';
+  } from 'web-recording-lib';
 
 // Create a global reference to store recorders by ID
 window.recorderInstances = {};

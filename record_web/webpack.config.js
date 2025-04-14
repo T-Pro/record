@@ -7,7 +7,7 @@ module.exports = {
   },
   output: {
     filename: '[name].js',
-    path: path.resolve(__dirname, 'web/assets/packages/record_web/assets/js'),
+    path: path.resolve(__dirname, 'assets/js'),
   },
   module: {
     rules: [

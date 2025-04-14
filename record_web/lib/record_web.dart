@@ -7,6 +7,16 @@ import 'package:record_web/recorder/recorder.dart';
 
 class RecordPluginWeb {
   static void registerWith(Registrar registrar) {
+    // Load JavaScript assets
+    ImportJsLibrary().import(
+      './record_web/assets/js/web-recording-lib/web-recording-lib-1.0.0.umd.js',
+      'web_recording_lib',
+    );
+    ImportJsLibrary().import(
+      './record_web/js/record.bridge.js',
+      'web_recording_lib_bridge',
+    );
+
     RecordPlatform.instance = RecordPluginWebWrapper();
   }
 }

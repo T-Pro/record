@@ -20,6 +20,9 @@ dependencies:
 dev_dependencies:
   flutter_lints: ^5.0.0
 
+scripts:
+  build_js: dart run tool/build_js.dart
+
 flutter:
   plugin:
     platforms:
@@ -30,3 +33,7 @@ flutter:
   assets:
     - assets/js/record.worklet.js
     - assets/js/record.fixwebmduration.js
+    - js/record.bridge.js
+    - assets/js/web-recording-lib/web-recording-lib-1.0.0.umd.js
+
+
