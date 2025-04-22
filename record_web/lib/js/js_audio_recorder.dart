@@ -10,15 +10,15 @@ import 'package:web/web.dart' as web;
 
 @JS('createRecorder')
 external JSPromise<JSBoolean> _createRecorder(
-  String recorderId,
-  JSObject config,
-);
+    String recorderId,
+    JSObject config,
+    );
 
 @JS('registerDartCallback')
 external void _registerDartCallback(
-  String recorderId,
-  JSFunction callback,
-);
+    String recorderId,
+    JSFunction callback,
+    );
 
 @JS('startRecording')
 external JSPromise<JSBoolean> _startRecording(String recorderId);
@@ -59,7 +59,7 @@ class JSAudioRecorder {
   static bool _bridgeLoaded = false;
 
   JSAudioRecorder({
-    required this.recorderId, 
+    required this.recorderId,
     this.onStateChanged,
     StreamController<Uint8List>? streamController,
   }) : _streamController = streamController {
@@ -82,7 +82,7 @@ class JSAudioRecorder {
       final dartData = data.toDart;
       _streamController?.add(dartData);
     }).toJS;
-    
+
     _registerDartCallback(recorderId, callback);
   }
 
@@ -99,11 +99,11 @@ class JSAudioRecorder {
       }.jsify()! as JSObject;
 
       final result = await _createRecorder(recorderId, jsConfig).toDart;
-      
+
       if (_streamController != null) {
         _registerCallback();
       }
-      
+
       return result.toDart;
     } catch (e) {
       debugPrint('Error creating recorder: $e');
@@ -207,8 +207,8 @@ class JSAudioRecorder {
   static Future<List<InputDevice>> listInputDevices() async {
     try {
       final jsDevices = await _listInputDevices().toDart;
-      final List<dynamic> devices = jsDevices.toDart.dartify() as List<dynamic>;
-      
+      final List<dynamic> devices = (jsDevices.toDart as JSArray).dartify() as List<dynamic>;
+
       return devices.map((device) {
         final map = device as Map<String, dynamic>;
         return InputDevice(
